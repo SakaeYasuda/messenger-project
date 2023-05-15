@@ -1,55 +1,108 @@
-"use client";
+'use client';
 
-import Button from "@/app/components/Button";
+import axios from "axios";
+import { signIn, useSession } from 'next-auth/react';
+import { useCallback, useEffect, useState } from 'react';
+import { BsGithub, BsGoogle  } from 'react-icons/bs';
+import { FieldValues, SubmitHandler, useForm } from 'react-hook-form';
+import { useRouter } from "next/navigation";
+
 import Input from "@/app/components/inputs/Input";
-import AuthSocialButton from "./AuthSocialButton";
+import AuthSocialButton from './AuthSocialButton';
+import Button from "@/app/components/Button";
+import { toast } from "react-hot-toast";
 
-import { useCallback, useState } from "react";
-import { FieldValues, SubmitHandler, useForm } from "react-hook-form";
-import { BsGithub, BsGoogle } from 'react-icons/bs';
-
-type Variant = "LOGIN" | "REGISTER";
+type Variant = 'LOGIN' | 'REGISTER';
 
 const AuthForm = () => {
-  const [variant, setVariant] = useState<Variant>();
+  const session = useSession();
+  const router = useRouter();
+  const [variant, setVariant] = useState<Variant>('LOGIN');
   const [isLoading, setIsLoading] = useState(false);
 
+  useEffect(() => {
+    if (session?.status === 'authenticated') {
+      router.push('/users')
+    }
+  }, [session?.status, router]);
+
   const toggleVariant = useCallback(() => {
-    if (variant == "LOGIN") {
-      setVariant("REGISTER");
+    if (variant === 'LOGIN') {
+      setVariant('REGISTER');
     } else {
-      setVariant("LOGIN");
+      setVariant('LOGIN');
     }
   }, [variant]);
 
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: {
+      errors,
+    }
   } = useForm<FieldValues>({
     defaultValues: {
-      name: "",
-      email: "",
-      password: "",
-    },
+      name: '',
+      email: '',
+      password: ''
+    }
   });
 
   const onSubmit: SubmitHandler<FieldValues> = (data) => {
     setIsLoading(true);
+  
+    if (variant === 'REGISTER') {
+      axios.post('/api/register', data)
+      .then(() => signIn('credentials', {
+        ...data,
+        redirect: false,
+      }))
+      .then((callback) => {
+        if (callback?.error) {
+          toast.error('Invalid credentials!');
+        }
 
-    if (variant == "REGISTER") {
-      // Axios Register
+        if (callback?.ok) {
+          router.push('/users')
+        }
+      })
+      .catch(() => toast.error('Something went wrong!'))
+      .finally(() => setIsLoading(false))
     }
-    if (variant == "LOGIN") {
-      // Axios Login
+
+    if (variant === 'LOGIN') {
+      signIn('credentials', {
+        ...data,
+        redirect: false
+      })
+      .then((callback) => {
+        if (callback?.error) {
+          toast.error('Invalid credentials!');
+        }
+
+        if (callback?.ok) {
+          router.push('/users')
+        }
+      })
+      .finally(() => setIsLoading(false))
     }
-  };
+  }
 
   const socialAction = (action: string) => {
     setIsLoading(true);
 
-    //NextAuth Social Sign In
-  };
+    signIn(action, { redirect: false })
+      .then((callback) => {
+        if (callback?.error) {
+          toast.error('Invalid credentials!');
+        }
+
+        if (callback?.ok) {
+          router.push('/users')
+        }
+      })
+      .finally(() => setIsLoading(false));
+  } 
 
   return ( 
     <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
